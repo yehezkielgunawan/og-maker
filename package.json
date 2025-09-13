@@ -1,0 +1,24 @@
+{
+  "name": "og-maker",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "cloudflare:preview": "$npm_execpath run build && vite preview",
+    "cloudflare:deploy": "$npm_execpath run build && wrangler deploy",
+    "cloudflare:cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "types": "wrangler types",
+    "up-latest": "pnpm up -i -L"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.13",
+    "hono": "^4.9.7",
+    "tailwindcss": "^4.1.13"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.2.3",
+    "vite": "^6.3.5",
+    "vite-ssr-components": "^0.5.1",
+    "wrangler": "^4.17.0"
+  }
+}

@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+/* Base styles */
+body {
+    font-family:
+        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+        "Ubuntu", "Cantarell", sans-serif;
+}
+
+/* Canvas container responsive styles */
+.aspect-\[2\/1\] {
+    aspect-ratio: 2 / 1;
+}
+
+/* Custom scrollbar for textarea */
+textarea {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+textarea::-webkit-scrollbar {
+    width: 6px;
+}
+
+textarea::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+}
+
+textarea::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+textarea::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Canvas scaling for responsive design */
+#og-canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Button hover transitions */
+button {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Form input focus styles */
+input:focus,
+textarea:focus {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Copy button success state */
+.copy-success {
+    background-color: #059669 !important;
+}
+
+/* Loading state for canvas */
+.canvas-loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .grid-cols-1.lg\:grid-cols-2 {
+        gap: 1rem;
+    }
+
+    #og-canvas {
+        max-width: 100%;
+        height: auto;
+    }
+}
+
+/* Print styles */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+}
