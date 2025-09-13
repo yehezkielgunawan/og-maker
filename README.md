@@ -2,7 +2,11 @@
 
 A dynamic Open Graph image generator built with Hono.js, Vite, and Tailwind CSS. Create beautiful, customizable OG images with a Satori-inspired gradient layout using modern JSX components and ES6+ JavaScript for your content with real-time preview and easy sharing.
 
-![OG Image Generator](https://img.shields.io/badge/Built%20with-Hono.js-orange) ![Tailwind CSS](https://img.shields.io/badge/Styled%20with-Tailwind%20CSS-blue) ![Vite](https://img.shields.io/badge/Powered%20by-Vite-yellow)
+[![CI](https://github.com/yehezgun/og-maker/workflows/CI/badge.svg)](https://github.com/yehezgun/og-maker/actions)
+[![Deploy](https://github.com/yehezgun/og-maker/workflows/Deploy/badge.svg)](https://github.com/yehezgun/og-maker/actions)
+![OG Image Generator](https://img.shields.io/badge/Built%20with-Hono.js-orange) 
+![Tailwind CSS](https://img.shields.io/badge/Styled%20with-Tailwind%20CSS-blue) 
+![Vite](https://img.shields.io/badge/Powered%20by-Vite-yellow)
 
 ## ✨ Features
 
