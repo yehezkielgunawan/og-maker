@@ -3,15 +3,15 @@ export const PreviewComponent = () => {
     <div class="bg-white rounded-lg shadow-md p-6">
       <h2 class="text-2xl font-semibold text-gray-800 mb-6">Preview</h2>
 
-      {/* Canvas Container */}
+      {/* SVG Preview Container */}
       <div class="mb-6">
         <div class="bg-gray-100 rounded-lg p-4 aspect-[2/1] flex items-center justify-center">
-          <canvas
-            id="og-canvas"
-            width={1200}
-            height={600}
+          <img
+            id="og-preview"
+            src="/api/og"
+            alt="OG Image Preview"
             class="max-w-full max-h-full border border-gray-300 rounded shadow-sm bg-white"
-          ></canvas>
+          />
         </div>
       </div>
 

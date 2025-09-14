@@ -11,8 +11,11 @@
     "up-latest": "pnpm up -i -L"
   },
   "dependencies": {
+    "@cf-wasm/og": "^0.1.41",
     "@tailwindcss/vite": "^4.1.13",
+    "@types/react": "^19.1.13",
     "hono": "^4.9.7",
+    "react": "^19.1.1",
     "tailwindcss": "^4.1.13"
   },
   "devDependencies": {

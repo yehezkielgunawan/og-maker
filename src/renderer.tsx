@@ -66,7 +66,7 @@ export const renderer = jsxRenderer(({ children }) => {
       </head>
       <body>
         {children}
-        <Script src="/src/og-generator.js" />
+        <Script src="/src/og-client.js" />
       </body>
     </html>
   );
