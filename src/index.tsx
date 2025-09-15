@@ -3,6 +3,12 @@ import { renderer } from "./renderer";
 import { FormComponent } from "./components/FormComponent";
 import { PreviewComponent } from "./components/PreviewComponent";
 import { InstructionsComponent } from "./components/InstructionsComponent";
+import {
+  generateOGImage,
+  generateOGImageWebP,
+  type OGImageData,
+} from "./lib/takumi";
+import { generateFallbackOGHTML } from "./lib/fallback-og";
 
 const app = new Hono();
 
@@ -18,7 +24,7 @@ app.get("/", (c) => {
             OG Image Generator
           </h1>
           <p class="text-lg text-gray-600">
-            Create beautiful Open Graph images with Satori-inspired layout
+            Create beautiful Open Graph images with Takumi
           </p>
         </div>
 
@@ -29,354 +35,232 @@ app.get("/", (c) => {
 
         <InstructionsComponent />
       </div>
+
+      {/* Client-side JavaScript for form handling */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+          let debounceTimer;
+
+          function updatePreviewAndURL() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+              const formData = new FormData(document.getElementById('og-form'));
+              const params = new URLSearchParams();
+
+              // Get form values
+              const title = formData.get('title') || 'Title';
+              const description = formData.get('description') || 'Description';
+              const social = formData.get('social') || 'Twitter: @yehezgun';
+              const siteName = formData.get('siteName') || 'yehezgun.com';
+              const imageUrl = formData.get('imageUrl') || '';
+
+              // Build query parameters
+              params.set('title', title);
+              params.set('description', description);
+              params.set('social', social);
+              params.set('siteName', siteName);
+              if (imageUrl) params.set('imageUrl', imageUrl);
+
+              // Update URL display
+              const baseUrl = window.location.origin + '/api/og.png';
+              const fullUrl = baseUrl + '?' + params.toString();
+              document.getElementById('generated-url').value = fullUrl;
+
+              // Update preview image
+              updatePreviewImage(fullUrl);
+            }, 500);
+          }
+
+          function updatePreviewImage(imageUrl) {
+            const canvas = document.getElementById('og-canvas');
+            const ctx = canvas.getContext('2d');
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Show loading state
+            ctx.fillStyle = '#f3f4f6';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#6b7280';
+            ctx.font = '24px Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Generating preview...', canvas.width / 2, canvas.height / 2);
+
+            // Load and display the generated image
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            };
+            img.onerror = () => {
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              ctx.fillStyle = '#fef2f2';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.fillStyle = '#dc2626';
+              ctx.font = '20px Arial, sans-serif';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText('Error loading preview', canvas.width / 2, canvas.height / 2);
+            };
+            img.src = imageUrl + '&t=' + Date.now(); // Add timestamp to prevent caching
+          }
+
+          // Copy URL to clipboard
+          function copyToClipboard() {
+            const urlInput = document.getElementById('generated-url');
+            urlInput.select();
+            document.execCommand('copy');
+
+            const copyBtn = document.getElementById('copy-url-btn');
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = 'Copied!';
+            copyBtn.style.backgroundColor = '#10b981';
+
+            setTimeout(() => {
+              copyBtn.textContent = originalText;
+              copyBtn.style.backgroundColor = '#2563eb';
+            }, 2000);
+          }
+
+          // Download image
+          function downloadImage() {
+            const url = document.getElementById('generated-url').value;
+            if (!url) return;
+
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'og-image.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }
+
+          // Event listeners
+          document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('og-form');
+            const inputs = form.querySelectorAll('input, textarea');
+
+            // Add event listeners to all form inputs
+            inputs.forEach(input => {
+              input.addEventListener('input', updatePreviewAndURL);
+            });
+
+            // Copy button
+            document.getElementById('copy-url-btn').addEventListener('click', copyToClipboard);
+
+            // Download button
+            document.getElementById('download-btn').addEventListener('click', downloadImage);
+
+            // Initial load
+            updatePreviewAndURL();
+          });
+        `,
+        }}
+      />
     </div>,
   );
 });
 
-// API endpoint for generating OG images
+// PNG endpoint for OG image generation
+app.get("/api/og.png", async (c) => {
+  try {
+    const { title, description, social, siteName, imageUrl } = c.req.query();
+
+    const ogData: OGImageData = {
+      title: title || "Title",
+      description: description || "Description",
+      social: social || "Twitter: @yehezgun",
+      siteName: siteName || "yehezgun.com",
+      imageUrl: imageUrl || undefined,
+    };
+
+    try {
+      // Try Takumi first
+      const imageBuffer = await generateOGImage(ogData);
+
+      // Return PNG image with proper headers
+      c.header("Content-Type", "image/png");
+      c.header("Cache-Control", "public, max-age=3600"); // Cache for 1 hour
+
+      return c.body(imageBuffer);
+    } catch (takumiError) {
+      console.warn("Takumi failed, falling back to HTML:", takumiError);
+
+      // Fallback to HTML rendering
+      const htmlContent = generateFallbackOGHTML(ogData);
+
+      // Return HTML with proper headers for image preview
+      c.header("Content-Type", "text/html");
+      return c.html(htmlContent);
+    }
+  } catch (error) {
+    console.error("Error generating OG image:", error);
+    c.status(500);
+    return c.text("Error generating image");
+  }
+});
+
+// WebP endpoint for OG image generation
+app.get("/api/og.webp", async (c) => {
+  try {
+    const { title, description, social, siteName, imageUrl } = c.req.query();
+
+    const ogData: OGImageData = {
+      title: title || "Title",
+      description: description || "Description",
+      social: social || "Twitter: @yehezgun",
+      siteName: siteName || "yehezgun.com",
+      imageUrl: imageUrl || undefined,
+    };
+
+    try {
+      // Try Takumi first
+      const imageBuffer = await generateOGImageWebP(ogData);
+
+      // Return WebP image with proper headers
+      c.header("Content-Type", "image/webp");
+      c.header("Cache-Control", "public, max-age=3600"); // Cache for 1 hour
+
+      return c.body(imageBuffer);
+    } catch (takumiError) {
+      console.warn("Takumi failed, falling back to HTML:", takumiError);
+
+      // Fallback to HTML rendering
+      const htmlContent = generateFallbackOGHTML(ogData);
+
+      // Return HTML with proper headers
+      c.header("Content-Type", "text/html");
+      return c.html(htmlContent);
+    }
+  } catch (error) {
+    console.error("Error generating OG image:", error);
+    c.status(500);
+    return c.text("Error generating image");
+  }
+});
+
+// Legacy HTML endpoint for backward compatibility
 app.get("/api/og", async (c) => {
   const { title, description, social, siteName, imageUrl } = c.req.query();
 
-  // Return a clean HTML page that renders only the OG image
-  return c.html(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>OG Image Generator</title>
-        <link rel="icon" type="image/svg+xml" href="/yehez-icon.svg" />
-        <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-        <meta property="og:title" content="${title || "Title"}" />
-        <meta property="og:description" content="${description || "Description"}" />
-        <meta property="og:image" content="${c.req.url}" />
-        <meta property="og:type" content="website" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="${title || "Title"}" />
-        <meta name="twitter:description" content="${description || "Description"}" />
-        <meta name="twitter:image" content="${c.req.url}" />
-        <style>
-          body {
-            margin: 0;
-            padding: 0;
-            background: #334155;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            font-family: Arial, sans-serif;
-          }
-          canvas {
-            display: block;
-            max-width: 100%;
-            height: auto;
-          }
-        </style>
-      </head>
-      <body>
-        <canvas id="og-canvas" width="1200" height="600"></canvas>
+  // Redirect to PNG endpoint with same parameters
+  const params = new URLSearchParams();
+  if (title) params.set("title", title);
+  if (description) params.set("description", description);
+  if (social) params.set("social", social);
+  if (siteName) params.set("siteName", siteName);
+  if (imageUrl) params.set("imageUrl", imageUrl);
 
-        <script>
-          const canvas = document.getElementById('og-canvas');
-          const ctx = canvas.getContext('2d');
-
-          const params = new URLSearchParams(window.location.search);
-          const data = {
-            title: params.get('title') || 'Title',
-            description: params.get('description') || 'Description',
-            social: params.get('social') || 'Twitter: @yehezgun',
-            siteName: params.get('siteName') || 'yehezgun.com',
-            imageUrl: params.get('imageUrl') || ''
-          };
-
-          async function generateImage() {
-            // Clear canvas and draw gradient background
-            const gradient = ctx.createLinearGradient(0, 0, 1200, 600);
-            gradient.addColorStop(0, '#1e293b');  // slate-800
-            gradient.addColorStop(1, '#475569');  // slate-600
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, 1200, 600);
-
-            // Draw image placeholder on the right side
-            await drawImage(data.imageUrl);
-
-            // Draw text content
-            drawTextContent(data);
-          }
-
-          async function drawImage(imageUrl) {
-            try {
-              let img;
-
-              if (imageUrl) {
-                // Load custom image
-                img = new Image();
-                img.crossOrigin = 'anonymous';
-                await new Promise((resolve, reject) => {
-                  img.onload = resolve;
-                  img.onerror = () => {
-                    img = null;
-                    resolve();
-                  };
-                  img.src = imageUrl;
-                });
-              } else {
-                // Load default yehez-icon.svg
-                img = new Image();
-                await new Promise((resolve, reject) => {
-                  img.onload = resolve;
-                  img.onerror = () => {
-                    img = null;
-                    resolve();
-                  };
-                  img.src = '/yehez-icon.svg';
-                });
-              }
-
-              if (!img) {
-                // Draw default placeholder
-                drawImagePlaceholder();
-                return;
-              }
-
-              // Position image on the right side as a circle (256px like Satori)
-              const imageSize = 256;
-              const imageX = 1200 - imageSize - 96; // 96px padding like Satori
-              const imageY = (420 - imageSize) / 2 + 48; // Center in main content area
-
-              // Create circular clipping path
-              ctx.save();
-              ctx.beginPath();
-              ctx.arc(
-                imageX + imageSize / 2,
-                imageY + imageSize / 2,
-                imageSize / 2,
-                0,
-                Math.PI * 2
-              );
-              ctx.clip();
-
-              // Fill background with lighter color
-              ctx.fillStyle = '#64748b';
-              ctx.fill();
-
-              // Draw image
-              ctx.drawImage(img, imageX, imageY, imageSize, imageSize);
-              ctx.restore();
-            } catch (error) {
-              drawImagePlaceholder();
-            }
-          }
-
-          function drawImagePlaceholder() {
-            const imageSize = 256;
-            const imageX = 1200 - imageSize - 96;
-            const imageY = (420 - imageSize) / 2 + 48;
-
-            // Draw circle
-            ctx.save();
-            ctx.fillStyle = '#64748b';
-            ctx.beginPath();
-            ctx.arc(
-              imageX + imageSize / 2,
-              imageY + imageSize / 2,
-              imageSize / 2,
-              0,
-              Math.PI * 2
-            );
-            ctx.fill();
-
-            // Draw placeholder icon
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '72px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('👤', imageX + imageSize / 2, imageY + imageSize / 2);
-            ctx.restore();
-          }
-
-          function drawTextContent(data) {
-            const leftMargin = 96; // 24px * 4 for 1200px scale
-            const maxWidth = 768; // max-w-3xl equivalent
-
-            // Main content area (420px height, starting at y=48)
-            const contentStartY = 48;
-            const contentHeight = 420;
-
-            // Draw title - large and prominent (5xl = 48px scaled up)
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 60px Inter, Arial, sans-serif';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'top';
-
-            const titleLines = wrapText(data.title, maxWidth, 60);
-            let currentY = contentStartY + 64; // pt-12 equivalent
-
-            titleLines.forEach(line => {
-              ctx.fillText(line, leftMargin, currentY);
-              currentY += 72; // line height
-            });
-
-            // Draw description (3xl = 30px scaled up, mt-8 = 32px)
-            currentY += 32;
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '36px Inter, Arial, sans-serif';
-
-            const descLines = wrapText(data.description, maxWidth, 36);
-            descLines.slice(0, 2).forEach(line => {
-              ctx.fillText(line, leftMargin, currentY);
-              currentY += 50; // leading-snug
-            });
-
-            // Footer area (bottom 100px)
-            const footerY = 520; // 600 - 100 + padding
-
-            // Site name (bottom left) - bold xl
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 24px Inter, Arial, sans-serif';
-            ctx.textAlign = 'left';
-            ctx.fillText(data.siteName, leftMargin, footerY);
-
-            // Social media (bottom right) - medium xl
-            ctx.textAlign = 'right';
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '500 24px Inter, Arial, sans-serif';
-            ctx.fillText(data.social, 1200 - leftMargin, footerY);
-          }
-
-          function wrapText(text, maxWidth, fontSize) {
-            const words = text.split(' ');
-            const lines = [];
-            let currentLine = '';
-
-            ctx.font = fontSize + 'px Arial, sans-serif';
-
-            for (let word of words) {
-              const testLine = currentLine + (currentLine ? ' ' : '') + word;
-              const metrics = ctx.measureText(testLine);
-
-              if (metrics.width > maxWidth && currentLine) {
-                lines.push(currentLine);
-                currentLine = word;
-              } else {
-                currentLine = testLine;
-              }
-            }
-
-            if (currentLine) {
-              lines.push(currentLine);
-            }
-
-            return lines;
-          }
-
-          generateImage();
-        </script>
-      </body>
-    </html>
-  `);
+  const redirectUrl = `/api/og.png?${params.toString()}`;
+  return c.redirect(redirectUrl);
 });
 
-// PNG endpoint for direct image serving
-app.get("/api/og.png", async (c) => {
-  const { title, description, social, siteName, imageUrl } = c.req.query();
-
-  // Return HTML that renders to image for social media crawlers
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>OG Image Generator</title>
-        <link rel="icon" type="image/svg+xml" href="/yehez-icon.svg" />
-        <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            width: 1200px;
-            height: 600px;
-            background: linear-gradient(135deg, #1e293b 0%, #475569 100%);
-            color: white;
-            font-family: Inter, Arial, sans-serif;
-            position: relative;
-            overflow: hidden;
-          }
-          .main-content {
-            height: 420px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 48px 96px 0 96px;
-            box-sizing: border-box;
-          }
-          .content {
-            display: flex;
-            flex-direction: column;
-            max-width: 768px;
-          }
-          .title {
-            font-size: 60px;
-            font-weight: bold;
-            line-height: 1.2;
-            margin-bottom: 32px;
-            word-wrap: break-word;
-          }
-          .description {
-            font-size: 36px;
-            font-weight: 300;
-            color: white;
-            line-height: 1.4;
-            word-wrap: break-word;
-          }
-          .footer {
-            height: 100px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 96px;
-            box-sizing: border-box;
-          }
-          .siteName {
-            font-size: 24px;
-            font-weight: 500;
-          }
-          .social {
-            font-size: 24px;
-            font-weight: 400;
-          }
-          .avatar {
-            width: 256px;
-            height: 256px;
-            border-radius: 50%;
-            background: #64748b;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 96px;
-            overflow: hidden;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="main-content">
-          <div class="content">
-            <div class="title">${title || "Title"}</div>
-            <div class="description">${description || "Description"}</div>
-          </div>
-          <div class="avatar">
-            ${imageUrl ? `<img src="${imageUrl}" alt="avatar" style="width: 100%; height: 100%; object-fit: cover;">` : "👤"}
-          </div>
-        </div>
-        <div class="footer">
-          <div class="siteName">${siteName || "yehezgun.com"}</div>
-          <div class="social">${social || "Twitter: @yehezgun"}</div>
-        </div>
-      </body>
-    </html>
-  `;
-
-  return c.html(html);
+// Health check endpoint
+app.get("/health", (c) => {
+  return c.json({ status: "ok", service: "og-maker", engine: "takumi" });
 });
 
 export default app;

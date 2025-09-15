@@ -2,9 +2,10 @@
   "name": "og-maker",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "wrangler dev",
     "build": "vite build",
-    "cloudflare:preview": "$npm_execpath run build && vite preview",
+    "preview": "wrangler dev --local",
+    "cloudflare:preview": "$npm_execpath run build && wrangler dev",
     "cloudflare:deploy": "$npm_execpath run build && wrangler deploy",
     "cloudflare:cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "types": "wrangler types",
@@ -12,6 +13,8 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.13",
+    "@takumi-rs/helpers": "^0.31.2",
+    "@takumi-rs/wasm": "^0.31.2",
     "hono": "^4.9.7",
     "tailwindcss": "^4.1.13"
   },

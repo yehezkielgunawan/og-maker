@@ -2,5 +2,25 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "og-maker",
   "compatibility_date": "2025-08-03",
-  "main": "./src/index.tsx"
+  "main": "./dist/og_maker/index.js",
+  "rules": [
+    {
+      "type": "Data",
+      "globs": ["**/*.ttf", "**/*.woff", "**/*.woff2", "**/*.wasm"],
+      "fallthrough": true,
+    },
+  ],
+  "build": {
+    "command": "npm run build",
+  },
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+  },
+  "limits": {
+    "cpu_ms": 50000,
+  },
+  "vars": {
+    "NODE_ENV": "production",
+  },
 }
